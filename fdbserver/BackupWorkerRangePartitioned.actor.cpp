@@ -50,6 +50,11 @@ struct PartitionInfo {
 
 	PartitionInfo() : partitionId(-1) {}
 	PartitionInfo(int id, KeyRange r) : partitionId(id), ranges(r) {}
+
+	template <class Ar>
+	void serialize(Ar& ar) {
+		serializer(ar, partitionId, ranges);
+	}
 };
 
 struct BackupRangePartitionedData {
@@ -265,6 +270,9 @@ ACTOR Future<Version> pullPartitionMapFromTLog(BackupRangePartitionedData* self,
 				throw worker_removed();
 			}
 
+			// TODO akanksha: unordered_map is not serializable by ArenaReader, so either need to implement custom
+			// deserialization logic for PartitionMapMessage or change the data structure to std::map which is
+			// supported.
 			// TODO akanksha: uncomment and implement PartitionMapMessage and its deserialization logic
 			/*
 			PartitionMapMessage pmMsg;
@@ -301,6 +309,9 @@ ACTOR Future<Void> uploadPartitionMap(BackupRangePartitionedData* self,
 	}
 
 	wait(waitForAll(fileFutures));
+	TraceEvent("BWRangePartitionedPartitionMapUploaded", self->myId)
+	    .detail("Version", partitionMapVersion)
+	    .detail("NumBackups", self->backups.size());
 	return Void();
 }
 
